@@ -153,10 +153,16 @@ test('祝日', () => { for (const [k, v] of Object.entries(H)) assert.equal(getH
 test('祝日でない日', () => { assert.equal(getHoliday('2026-11-24'), null); assert.equal(getHoliday('2026-12-25'), null); });
 
 test('旧暦の正月は先勝', () => {
-  for (const k of ['2024-02-10', '2025-01-29', '2026-02-17', '2027-02-06']) {
+  // 2027 年は朔が 2/6 15:56 UTC = 日本時間 2/7 0:56 なので、日本の旧正月は 2/7（中国の春節 2/6 とは違う）
+  for (const k of ['2024-02-10', '2025-01-29', '2026-02-17', '2027-02-07']) {
     assert.deepEqual(toLunar(k), { month: 1, day: 1, leap: false }, k);
     assert.equal(getRokuyo(k), '先勝', k);
   }
+});
+test('朔の日付は日本時間で決める', () => {
+  // 朔 2026-10-10 15:50 UTC → 日本時間 10/11。日本では 10/11 が旧暦 9 月 1 日
+  assert.deepEqual(toLunar('2026-10-11'), { month: 9, day: 1, leap: false });
+  assert.deepEqual(toLunar('2026-10-10'), { month: 8, day: 30, leap: false });
 });
 test('十五夜（旧暦 8 月 15 日）は仏滅', () => {
   for (const k of ['2024-09-17', '2025-10-06', '2026-09-25']) {
