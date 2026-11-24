@@ -192,13 +192,13 @@ test('十五夜（旧暦 8 月 15 日）は仏滅', () => {
 - Produces:
   - `GOOGLE_EVENT_COLORS: {id, name, hex}[]`。値は次のとおり。`1 ラベンダー #7986cb, 2 セージ #33b679, 3 ブドウ #8e24aa, 4 フラミンゴ #e67c73, 5 バナナ #f6bf26, 6 ミカン #f4511e, 7 ピーコック #039be5, 8 グラファイト #616161, 9 ブルーベリー #3f51b5, 10 バジル #0b8043, 11 トマト #d50000`
   - `FONT_LEVELS = [16, 18, 22, 26, 32]`
-  - `THEMES: Record<'standard'|'cream'|'dark'|'contrast', {label, bg, surface, text, subtext, border, accent, accentText, saturday, sunday, today}>`。ラベルは「白地に黒」「クリーム地に黒」「黒地に白」「くっきり」。
+  - `THEMES: Record<'standard'|'sakura'|'wakaba'|'cream'|'dark'|'contrast', {label, bg, surface, text, subtext, border, accent, accentText, saturday, sunday, today, head, headText, band}>`。ラベルは「白」「さくら」「わかば」「クリーム」「黒地に白」「くっきり」。色の値は見本（`https://claude.ai/artifact/NfJsaR2UaeVQVKe3np77VE`）の `.app[data-apptheme=…]` を出発点にする。
   - `contrastRatio(hexA, hexB): number`（WCAG の式）
   - `DEFAULT_SETTINGS`、`mergeSettings(saved: object|null): Settings`
   - Settings の形と初期値:
 ```js
 { version: 1, fontLevel: 2, theme: 'standard', udFont: false, startView: 'month', weekStart: 0,
-  showRokuyo: true, visibleCalendars: null /* null = 父のメインのカレンダーだけ */,
+  showRokuyo: true, monthNames: true /* 月の表に予定の名前を出す。false なら色の点 */, visibleCalendars: null /* null = 父のメインのカレンダーだけ */,
   categories: [ {id:'hospital',name:'病院',colorId:'11'}, {id:'travel',name:'旅行',colorId:'7'},
                 {id:'family',name:'家族',colorId:'2'}, {id:'errand',name:'用事',colorId:'6'}, {id:'other',name:'その他',colorId:'8'} ],
   itemSets: [ {id:'hospital',name:'病院セット',items:['保険証','診察券','お薬手帳','お金']},
@@ -217,6 +217,7 @@ test('どのテーマも文字がはっきり読める', () => {
     assert.ok(contrastRatio(t.text, t.bg) >= 7, `${name} text`);
     assert.ok(contrastRatio(t.text, t.surface) >= 7, `${name} surface`);
     for (const k of ['subtext', 'saturday', 'sunday']) assert.ok(contrastRatio(t[k], t.bg) >= 4.5, `${name} ${k}`);
+    assert.ok(contrastRatio(t.headText, t.head) >= 7, `${name} head`);
     assert.ok(contrastRatio(t.accentText, t.accent) >= 4.5, `${name} accent`);
   }
 });
@@ -597,7 +598,7 @@ test('dist/Code.gs は最新', () => { /* build の出力 === 保存されてい
   - `applySettings(doc, settings)`: `--font-base` に `FONT_LEVELS[level]px` を入れ、テーマの CSS 変数と、`data-theme`・`data-udfont` を設定する。
   - `app` の状態（`main.js`）: `{settings, repo, connection: {mode: 'google'|'demo', url?, key?}}`。kv の `'kv'` ストアに `connection` と `settings` を保存する。
   - `installKeyboardHelper(doc)`: 入力欄にフォーカスすると `body.editing`（下のボタンを隠す）を付け、300ms 後に `scrollIntoView({block: 'center'})` する。`visualViewport` の resize で `--kb-inset`（キーボードの高さ）を設定し、フォームの下に余白を足す。
-  - 画面の部品: 上の段（タイトル、「🔍 探す」「⚙ 設定」）、下の段（「一覧」「月」「週」「日」）、大きな「＋ 予定を入れる」ボタン、`showToast(message)`、`confirmDialog({message, buttons: [{label, value}]}) → Promise<value>`
+  - 画面の部品: 上の段（左にタイトル、右に「🔍 探す」「⚙ 設定」）、下の段（「今日」「月」「週」「日」「一覧」と右端の丸い「＋ 追加」）、`showToast(message)`、`confirmDialog({message, buttons: [{label, value}]}) → Promise<value>`。画面は 1 枚に収め（`html, body { height: 100% }`）、中身ごとにスクロールする。
   - 初回設定の画面: 見出し「初めの設定（家族の方へ）」と、説明「この画面が出たら、家族に連絡してください」。入力欄は「Google 側のアドレス」と「合言葉」。「つなぐ」ボタンで ping が成功したら保存し、最初の画面へ進む。失敗したら日本語で出す。「お試し（見本の予定で使う）」ボタンでお試しモードにする。
   - 起動したら裏で `ping` し、`version < REQUIRED_GAS_VERSION`（`main.js` の定数、今は 1）なら、設定の「家族向けの設定」に「Google 側の更新が必要です」と出す。
   - `scripts/serve.mjs`: `app/` を、決めたポートで正しい MIME とキャッシュなしで配る、静的なサーバー。
@@ -614,7 +615,7 @@ test('拡大を禁止しない viewport', async () => {
 test('どの文字サイズでも入力欄は 16px 以上（初回設定の画面）', async () => {
   for (let lv = 0; lv < 5; lv++) { /* #/setup の input/select/textarea の computed fontSize >= 16 */ }
 });
-test('一番大きい字でも、幅 375px で横にはみ出さない', async () => { /* device 'iPhone SE', fontLevel 4 → scrollWidth <= clientWidth、下の段の 4 つの文字が見える */ });
+test('一番大きい字でも、幅 375px で横にはみ出さない', async () => { /* device 'iPhone SE', fontLevel 4 → scrollWidth <= clientWidth、下の段の 5 つの文字と「＋ 追加」が見える、上の段の年月が「…」で切れない */ });
 test('入力中は下の段が隠れる', async () => { /* 入力欄に focus → body.editing、nav が非表示 → blur で戻る */ });
 test('設定がない時は初回設定の画面が出る', async () => { /* 空の状態で開く → 「この画面が出たら、家族に連絡してください」 */ });
 test('文字サイズの設定で根元の字の大きさが変わる', async () => { /* fontLevel 4 → html の computed fontSize '32px' */ });
@@ -624,43 +625,82 @@ test('文字サイズの設定で根元の字の大きさが変わる', async ()
 - [ ] **Step 2: 失敗を確かめる**（`npm test` と `npm run test:e2e`）。 → **Step 3: 実装する。** → **Step 4: 通ることを確かめる。**
 - [ ] **Step 5: コミット** `feat: 画面の土台・初回設定・お試しモード`
 
-### Task 14: 月の画面と一覧の画面
+### Task 14: 月の画面（つながった週の表と、下から出る予定）と一覧の画面
 
 **Files:**
-- Create: `app/js/ui/components.js`, `app/js/ui/month-view.js`, `app/js/ui/list-view.js`
-- Test: `tests/e2e/month-list.test.js`
+- Create: `app/js/ui/components.js`, `app/js/ui/month-view.js`, `app/js/ui/month-layout.js`, `app/js/ui/list-view.js`
+- Test: `tests/unit/month-layout.test.js`, `tests/e2e/month-list.test.js`
 
 **Interfaces:**
-- Consumes: `repository.loadRange`, `departure.js`（`departureSummary`, `departureHintText`）, `holidays.js`, `rokuyo.js`, `weather.js`, `event-model.eventColorHex`
+- Consumes: `repository.loadRange`, `departure.js`（`departureSummary`, `departureHintText`）, `holidays.js`, `rokuyo.js`, `weather.js`, `event-model.eventColorHex`, `dates.js`
 - Produces:
-  - `renderEventRow(ev, ctx): HTMLElement`。中身は次のとおり。
-    - `.ev-time`: 太字で 1.2em。時刻ありなら `formatTime(start)`、終日なら「終日」。決して省略しない。
-    - `.ev-title`: 折り返してよい。
-    - 種類の色の帯。
-    - 出発の目安があれば、別の行に `.ev-hint`（0.9em）で `departureHintText`。
-    - 複数日の予定なら「（2日目／3日間）」。
-    - `pending` なら「まだ保存中」の印。
-    - 押すと `#/event/...` へ移る。
-  - 月の画面: 日付の数字（土曜は青、日曜・祝日は赤、今日は枠で囲む）、祝日名、六曜（設定で消せる）、色の点を 3 つまでと「+n」、複数日の予定は日付の上の色帯。下に、選んだ日の見出し（`formatDateJa`・六曜・天気）と `renderEventRow` の一覧、「この日に予定を入れる」ボタン。ボタンは「◀ 前の月」「今日に戻る」「次の月 ▶」。
+  - `month-layout.js`（DOM を使わない、テストできる計算）:
+    - `weekStartOf(key, weekStart): DateKey`
+    - `weekRange(today: DateKey, weekStart): {week0: DateKey, count: number}`（今月の 12 か月前の月初の週から、24 か月先の月末の週まで）
+    - `weekIndexOf(week0, key): number`
+    - `weekLanes(weekStartKey, events: AppEvent[]): {lane: Map<AppEvent, number>, count: number}`。複数日の予定を、開始日・長いほうの順に、空いている一番上の段へ入れる。
+    - `cellItems(key, weekLanes, dayEvents): (AppEvent|null)[]`。先頭は段に合わせた複数日の予定（空き段は null）で、末尾の空きは削る。その後に 1 日の予定が続く。
+    - `focusMonth(week0, topWeek, visibleRows): [y, m]`（見えている上から `min(2, visibleRows-1)` 番目の週の最後の日の月）
+  - `renderEventRow(ev, ctx): HTMLElement`。左の列に時刻（`.ev-t1` は開始で 1.12em の太字、`.ev-t2` は終了で 0.75em。終日なら「終日」）、色の帯、`.ev-title`、出発の目安があれば `.ev-hint`（0.8em）で `departureHintText`。`pending` なら「まだ保存中」の印。押すと `#/event/...` へ移る。
+  - 月の画面（設計書 9.6 のとおり）:
+    - 年月の見出し（`<small>2026年</small>11月`）。曜日の行。
+    - `.months` は週の行（`.week`、高さ = 表の高さ ÷ 6）を縦に並べ、`scroll-snap-type: y mandatory` で週の区切りに止める。
+    - マス（`.cell[data-d]`）の中は、`.num`（`clamp(16px, 0.85em, 28px)`）と、六曜がオンのときの `.l2`（六曜と祝日名）、予定の札 `.lb`（`clamp(11px, 0.5em, 15px)`、最大 3 つと「+n」）。六曜がオフのときは、祝日名を `.num` の右に出す。
+    - 複数日の帯（`.lb.span`、始まり `.s`・終わり `.e`、名前を出さない日は `.cont`）は、左に -3px・右に -2px はみ出してマスの区切り線を覆う。
+    - スクロールが止まったら（90ms 待つ）`focusMonth` で見出しを変え、その月以外のマスに `.out` を付ける。各月 1 日のマスに `.mtag`（「12月」）。
+    - 日付を押すと `.sheet`（表の高さの 58%）が下から出る。押した週が隠れるときは、`visibleRows` に収まるまで表を週単位でスクロールする。同じ日をもう一度押す、「閉じる」、上の部分を 70px 以上下へなぞる、のどれかで閉じる。
+    - 下の段の「今日」で、今月の最初の週へ戻って今日の予定を出す。
+    - 詳しい画面から戻ったときは、表の位置と、出ていた予定をそのまま戻す。
   - 一覧の画面: 一番上に「今日の天気（自宅）」（自宅が未設定なら出さない）。今日から 60 日分を日付ごとに並べ、最後に「もっと見る」ボタン（さらに 60 日）。予定がなければ「この先の予定はありません」。
 
 - [ ] **Step 1: 失敗するテストを書く**
 
 ```js
-test('予定の時刻が一番目立ち、出発の目安は小さく別の行', async () => {
-  // 2026-12-03 を選ぶ → 眼科の行
-  // .ev-time の文字 === '10:00'、.ev-hint に '出発の目安' を含み、'9:10〜9:25ごろ'
-  // fontSize(.ev-time) > fontSize(.ev-hint)、ev-hint の top > ev-time の bottom
+// tests/unit/month-layout.test.js
+test('同じ日付は 1 回だけ', () => {
+  const { week0, count } = weekRange('2026-11-24', 0);
+  const days = Array.from({ length: count * 7 }, (_, i) => addDays(week0, i));
+  assert.equal(new Set(days).size, days.length);
+  assert.equal(dayOfWeek(week0), 0);
 });
-test('一番大きい字でも時刻が切れない', async () => { /* iPhone SE, fontLevel 4 → .ev-time の scrollWidth <= clientWidth */ });
-test('祝日と六曜', async () => { /* 2026-11 を開く → 23 日に「勤労感謝の日」、赤い字。六曜をオフ → 消える */ });
-test('旅行は 3 日とも帯が出る', async () => { /* 2026-12-11〜13 の 3 つの日付に帯 */ });
-test('海外の時間帯でも日付がずれない', async () => { /* timezoneId 'America/New_York' → 眼科は 12月3日 の 10:00 */ });
+test('重なる旅行は段が分かれ、どの日も同じ段', () => {
+  const A = { id: 'a', allDay: true, start: '2026-12-04', end: '2026-12-06' };
+  const B = { id: 'b', allDay: true, start: '2026-12-05', end: '2026-12-08' };
+  const w = weekLanes('2026-11-29', [A, B]);
+  assert.equal(w.lane.get(A), 0); assert.equal(w.lane.get(B), 1);
+  assert.deepEqual(cellItems('2026-12-04', w, [A]).map(e => e && e.id), ['a']);
+  assert.deepEqual(cellItems('2026-12-07', w, [B]).map(e => e && e.id), [null, 'b']);
+});
+test('見出しの月', () => {
+  const { week0 } = weekRange('2026-11-24', 0);
+  const top = weekIndexOf(week0, '2026-11-29');
+  assert.deepEqual(focusMonth(week0, top, 6), [2026, 12]);
+});
+```
+
+```js
+// tests/e2e/month-list.test.js
+test('月の表に同じ日付が 2 回出ない', async () => { /* .cell[data-d] の値がすべて異なる */ });
+test('旅行の帯がつながる', async () => {
+  // 12/11 と 12/12 の .lb.span: 左の帯の right >= 右の帯の left - 0.5、top が同じ
+});
+test('どの文字サイズでも日付が読める', async () => {
+  // 0〜4 段階で、予定が 4 つある日の .num が、マスの中に収まり、ほかの要素に重なられていない（elementFromPoint で .num に当たる）
+});
+test('日付を押すと下から予定が出て、その週は見えたまま', async () => {
+  // 12/3 を押す → .sheet.open。12/3 のマスの bottom <= .sheet の top。行の .ev-t1 === '10:00'、.ev-hint に '出発の目安'
+  // fontSize(.ev-t1) > fontSize(.ev-hint)
+});
+test('閉じる 3 通り', async () => { /* 「閉じる」、同じ日をもう一度押す、上の部分を 100px 下へなぞる → どれも .sheet.open がなくなる */ });
+test('スクロールで見出しの月が変わり、ほかの月は薄くなる', async () => { /* 3 週下へ → 見出し「12月」、11/30 のマスに .out */ });
+test('一番大きい字でも時刻が切れない', async () => { /* iPhone SE, fontLevel 4 → .ev-t1 の scrollWidth <= clientWidth */ });
+test('祝日と六曜', async () => { /* 11/23 に「勤労感謝の日」、赤い字。六曜をオフ → .l2 がなくなり、祝日名は数字の右 */ });
+test('海外の時間帯でも日付がずれない', async () => { /* timezoneId 'America/New_York' → 眼科は 12月3日 のマス */ });
 test('一覧に今日の天気と予定', async () => { /* page.route で open-meteo を fixture に置き換え → 「今日の天気」と ☀️ */ });
 ```
 
 - [ ] **Step 2〜4: 失敗を確かめ、実装し、通ることを確かめる。**
-- [ ] **Step 5: コミット** `feat: 月の画面と一覧`
+- [ ] **Step 5: コミット** `feat: 月の画面（つながった週の表と下から出る予定）と一覧`
 
 ### Task 15: 週と日の画面
 
@@ -773,9 +813,9 @@ test('扱えない繰り返しは直せない', async () => { /* 体操を直す
   - 検索の画面: 入力欄と「探す」ボタン。結果を日付ごとに `renderEventRow` で並べる。なければ「見つかりませんでした」。
   - 設定の画面（上から）:
     - 文字の大きさ（5 つの大きな「あ」のボタンと見本の文）
-    - 色のテーマ（4 つ。見本付き）、読みやすい文字（UD フォント）
+    - 色のテーマ（6 つ。見本付き）、読みやすい文字（UD フォント）
     - 予定の種類（名前と 11 色。足す・消す）
-    - 最初に開く画面、週の始まり、六曜を表示
+    - 最初に開く画面、週の始まり、六曜を表示、月の表に予定の名前を出す（切ると色の点）
     - 表示するカレンダー（`listCalendars` の結果を切り替え）
     - よく使う予定（足す・直す・消す）、持ち物セット（足す・直す・消す）
     - 余裕の時間（0・5・10・15・20・30 分）、出発の目安の通知に使う道
