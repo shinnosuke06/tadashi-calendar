@@ -421,9 +421,9 @@ test('行って戻っても同じ', () => assert.deepEqual(fromGoogle(toGoogle(f
     - notFound → `'この予定は見つかりませんでした。'`
     - server → `'うまくいきませんでした。少したってから、もう一度お試しください。'`
   - `createApi({url, key}, {fetchImpl = fetch, timeoutMs = 25000}) → Api`
-  - `Api` の関数: `ping(): {version}`, `listCalendars(): {id, summary, primary, backgroundColor}[]`, `listEvents({calendarId, timeMin, timeMax, q?}): GoogleEvent[]`, `getEvent({calendarId, eventId})`, `insertEvent({calendarId, resource})`, `patchEvent({calendarId, eventId, resource})`, `deleteEvent({calendarId, eventId})`, `getSettings(): object|null`, `saveSettings(settings)`, `route({origin, destination}): RouteResult`, `geocode({address}): {address, lat, lng}|null`
+  - `Api` の関数: `ping(): {version}`, `listCalendars(): {id, summary, primary, backgroundColor}[]`, `listEvents({calendarId, timeMin, timeMax, q?}): GoogleEvent[]`, `getEvent({calendarId, eventId})`, `insertEvent({calendarId, resource})`, `patchEvent({calendarId, eventId, resource})`, `deleteEvent({calendarId, eventId})`, `getSettings(): object|null`, `saveSettings(settings)`, `route({origin, destination}): RouteResult`, `geocode({address, near?: {lat, lng}}): {results: {name, address, lat, lng}[]}`（最大 5 件）, `reverseGeocode({lat, lng}): {address}|null`
   - `RouteResult = {withHighways: {minutes, km}|null, withoutHighways: {minutes, km}|null, destinationAddress: string|null, destination: {lat, lng}|null}`
-  - 送り方: `POST url`。ヘッダーは `Content-Type: text/plain;charset=utf-8`（Apps Script の CORS の事前確認を避けるため）。本文は `{"key","action","params"}`。action 名は `ping, calendars.list, events.list, events.get, events.insert, events.patch, events.delete, settings.get, settings.save, route, geocode`。返事は `{ok:true, data}` か `{ok:false, error:{code:'BAD_KEY'|'NOT_FOUND'|'LIMIT'|'INTERNAL'}}`。
+  - 送り方: `POST url`。ヘッダーは `Content-Type: text/plain;charset=utf-8`（Apps Script の CORS の事前確認を避けるため）。本文は `{"key","action","params"}`。action 名は `ping, calendars.list, events.list, events.get, events.insert, events.patch, events.delete, settings.get, settings.save, route, geocode, reverseGeocode`。返事は `{ok:true, data}` か `{ok:false, error:{code:'BAD_KEY'|'NOT_FOUND'|'LIMIT'|'INTERNAL'}}`。
   - `createDemoApi({now = () => new Date(), kv})` は `Api` と同じ関数を持つ。架空の見本の予定を、今日を基準にして作る。中身は次のとおり。
     - 今日から 2 日後 10:00〜11:00「眼科」。場所「さくら眼科」、病院、持ち物は病院セット。route は高速あり 25 分・高速なし 40 分。
     - 3 日後 14:30「歯医者」。route なし。
@@ -577,8 +577,9 @@ test('dist/Code.gs は最新', () => { /* build の出力 === 保存されてい
 - Produces:
   - action `route({origin, destination}) → RouteResult`。`Maps.newDirectionFinder().setOrigin().setDestination().setMode(DRIVING).setLanguage('ja').setRegion('jp')` を、`setAvoid(Maps.DirectionFinder.Avoid.HIGHWAYS)` あり・なしで 2 回呼ぶ。`minutes = Math.round(秒/60)`、`km = Math.round(m/100)/10`。status が `OK` でなければ、その道は null。
     - 1 日の回数制限: スクリプトのプロパティ `ROUTE_COUNT_yyyy-MM-dd`（日本時間）に道順の回数を数え、今回の 2 回を足すと 100 を超えるなら地図を呼ばずに `LIMIT` を返す（Google の上限 1 日 1,000 回の 1 割）。古い日付のキーは毎晩の控えのときに消す。地図機能が上限の例外を出したときも `LIMIT` にする。
-    - geocode も同じ数え方で 1 日 50 回まで（自宅の住所を確かめるときだけ使う）。
-  - action `geocode({address}) → {address, lat, lng}|null`（`Maps.newGeocoder().setLanguage('ja').setRegion('jp')`）
+    - geocode と reverseGeocode は、合わせて同じ数え方（`GEO_COUNT_yyyy-MM-dd`）で 1 日 100 回まで（場所探しと自宅の住所の確認に使う）。
+  - action `geocode({address, near?}) → {results: {name, address, lat, lng}[]}`（`Maps.newGeocoder().setLanguage('ja').setRegion('jp')`。`near` があれば `setBounds` でその周り約 30km を優先。最大 5 件。`name` は結果の先頭の部分（施設名があればそれ）、`address` は `formatted_address`）
+  - action `reverseGeocode({lat, lng}) → {address}|null`（`Maps.newGeocoder().reverseGeocode(lat, lng)` の先頭）
   - `nightlyBackup()`: 父の書き込めるカレンダー（`accessRole` が owner か writer）の予定を、400 日前から 3 年後まで `singleEvents: false` で取る。`控え_yyyy-MM-dd` シートに書く。列は「カレンダー, 予定ID, 状態, タイトル, 開始, 終了, 終日, 場所, メモ, 繰り返し, 元データ」。控えのシートは新しいほうから 14 枚だけ残す。
   - `onOpen()`: メニュー「ただしカレンダー」→「選んだ行の予定を戻す」
   - `restoreSelectedRow()`: 元データの JSON から `id, etag, htmlLink, iCalUID, recurringEventId, created, updated, creator, organizer` を除いて insert する。同じ id の予定がまだあれば、戻さずに「この予定は今もあります」と出す。
@@ -763,8 +764,8 @@ test('繰り返しは 3 つから選ぶ', async () => { /* 内科 → この予�
 ### Task 17: 予定の入力画面
 
 **Files:**
-- Create: `app/js/ui/event-form.js`
-- Test: `tests/e2e/event-form.test.js`
+- Create: `app/js/ui/event-form.js`, `app/js/ui/place-picker.js`, `app/vendor/leaflet/`（npm の `leaflet@1.9.4` から `scripts/copy-vendor.mjs` で写す。BSD-2 のライセンスも置く）
+- Test: `tests/e2e/event-form.test.js`, `tests/e2e/place-picker.test.js`
 
 **Interfaces:**
 - Consumes: `repository.saveEvent`, `reminders.js`（`TIMED_PRESETS`, `ALLDAY_PRESETS`, `defaultNotifyFor`）, `recurrence.js`, Settings（templates, itemSets, categories）, `confirmDialog`
@@ -772,7 +773,9 @@ test('繰り返しは 3 つから選ぶ', async () => { /* 内科 → この予�
   - 上の段: 「やめる」「保存する」
   - よく使う予定のボタン（押すと、タイトル・種類・場所・長さ・持ち物・通知・メモを入れる）
   - タイトル、日付（`input type=date`）、「終日」の切り替え、開始・終了の時刻（`input type=time`、選んだ値をすぐ下に大きく表示）。複数日なら終わりの日。
-  - 場所、出発する場所（「自宅」または「別の場所」とその住所）、種類（色付きの大きなボタン）
+  - 場所（入力欄と「地図で探す」ボタン）、出発する場所（「自宅」または「別の場所」。別の場所も「地図で探す」で選べる）、種類（色付きの大きなボタン）
+  - `openPlacePicker({query, near}) → Promise<{name, address, lat, lng}|null>`（`place-picker.js`）: 全画面で開く。上に検索欄（初期値は入力中の場所）と「探す」、候補の一覧（名前を大きく、住所を小さく。押すと選ぶ）、その下に地図（Leaflet。タイルの URL は `app/js/config.js` の `MAP_TILES` で切り替える。国土地理院 `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png` と OpenStreetMap `https://tile.openstreetmap.org/{z}/{x}/{y}.png` を用意し、どちらも出典を地図の右下に出す。どちらを初期値にするかは設計書 14 章の答えで決める）。地図を押すとピンが動き、`reverseGeocode` で住所を出し直す。一番下に「この場所にする」「やめる」。候補が 0 件なら「見つかりませんでした。住所で探すか、地図を押して選んでください」。`LIMIT` のときは `ApiError` の文を出す。
+  - 選んだ場所は、場所の欄に `name`（なければ住所）を入れ、予定の `geo` と、移動時間の計算に使う住所（`address`）を記録する。
   - 繰り返し（なし・毎日・毎週・毎月（同じ日）・毎月（第 n 曜日）・毎年と、終わり）。扱えない繰り返しは「Google で設定された繰り返し（ここでは直せません）」と出して触れないようにする。
   - 通知（オン・オフと選択肢のチェック。5 つ選んだら残りは押せない。「出発の目安の時刻」は route がないと押せず、「場所を入れて保存すると選べます」と添える）
   - 持ち物（セットから入れる、1 つずつ足す・消す）、メモ
@@ -798,6 +801,8 @@ test('キーボードが出ても入力欄が見える', async () => {
 test('タイトルが空なら案内', async () => { /* 保存 → 「タイトルを入れてください」、保存されない */ });
 test('保存ボタンを 2 回押しても予定は 1 つ', async () => { /* 速く 2 回押す → その日の眼科以外の新しい予定は 1 件 */ });
 test('通知は 5 つまで', async () => { /* 5 つチェック → 6 つ目は disabled */ });
+test('地図で探して選ぶ', async () => { /* お試し api: geocode('さくら眼科') → 2 件。2 件目を押す → 地図のピンがその位置。「この場所にする」→ 場所の欄が 2 件目の名前、保存後の route.address が 2 件目の住所 */ });
+test('地図を押すとピンと住所が変わる', async () => { /* 地図の別の位置を押す → reverseGeocode が呼ばれ、住所の表示が変わる */ });
 test('扱えない繰り返しは直せない', async () => { /* 体操を直す → 「Google で設定された繰り返し（ここでは直せません）」、繰り返しの欄は disabled、タイトルは直して保存できる */ });
 ```
 
@@ -822,10 +827,11 @@ test('扱えない繰り返しは直せない', async () => { /* 体操を直す
     - 表示するカレンダー（`listCalendars` の結果を切り替え）
     - よく使う予定（足す・直す・消す）、持ち物セット（足す・直す・消す）
     - 余裕の時間（0・5・10・15・20・30 分）、出発の目安の通知に使う道
-    - 「家族向けの設定」（押すと開く）: 自宅の住所（「確かめる」で geocode し、`「{address} として登録しました」`）、接続の入れ直し（`#/setup`）、作りの番号（アプリの版と Apps Script の版）
+    - 「家族向けの設定」（押すと開く）: 自宅の住所（`openPlacePicker` で選び、`「{address} として登録しました」`）、まとめて取り込む、接続の入れ直し（`#/setup`）、作りの番号（アプリの版と Apps Script の版）
+  - まとめて取り込む（`app/js/import.js` の `parseImportFile(text): {events: AppEvent[], errors: string[]}` と `findDuplicates(events, existing): Set<number>`）: ファイルを選ぶと、設計書 13 章の JSON 形式を読み、取り込む予定の一覧をチェック付きで出す（同じ日・同じ開始時刻・同じタイトルがすでにあるものはチェックを外し「すでにあります」）。「取り込む」で、チェックした予定を `repository.saveEvent` で 1 件ずつ入れる（通知・種類の色は新しい予定の初期値。途中で電波が切れたら残りは送り直し待ち）。最後に「○件取り込みました」。形式が違うファイルなら「このファイルは取り込めません」。
   - 設定は変えたらすぐ `applySettings` し、`kv` に保存する。`saveSettings` は outbox を通して送る。開くときは、Google 側の設定と端末の設定を `mergeSettings` し、Google 側を優先する。
 
-- [ ] **Step 1: 失敗するテストを書く**（「眼科」で探すと 1 件。「あいうえお」では「見つかりませんでした」。文字の大きさを最大にすると html が 32px になり、開き直しても残る。テーマを「黒地に白」にすると body の背景が暗い。種類「病院」の色を変えると眼科の行の帯の色が変わる。よく使う予定を足すと入力画面にボタンが出る。家族向けの設定は最初は閉じている）
+- [ ] **Step 1: 失敗するテストを書く**（`tests/unit/import.test.js`: 正しい JSON から AppEvent を作る、終日・複数日、`format` が違えば errors、同じ予定は重複に入る。E2E: 取り込みファイルを選ぶ → 一覧 → 取り込む → 月の画面に出る。「眼科」で探すと 1 件。「あいうえお」では「見つかりませんでした」。文字の大きさを最大にすると html が 32px になり、開き直しても残る。テーマを「黒地に白」にすると body の背景が暗い。種類「病院」の色を変えると眼科の行の帯の色が変わる。よく使う予定を足すと入力画面にボタンが出る。家族向けの設定は最初は閉じている）
 - [ ] **Step 2〜4: 失敗を確かめ、実装し、通ることを確かめる。**
 - [ ] **Step 5: コミット** `feat: 検索と設定の画面`
 
