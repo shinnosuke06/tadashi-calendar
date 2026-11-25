@@ -398,11 +398,11 @@ test('行って戻っても同じ', () => assert.deepEqual(fromGoogle(toGoogle(f
 
 **Interfaces:**
 - Consumes: `dates.js`
-- Produces: `forecastUrl(lat, lng): string`, `describeWeather(code): {label, icon}`, `parseForecast(json): {daily: Record<DateKey,{code,max,min,pop}>, hourly: Record<LocalDateTime,number>}`, `weatherFor(forecast, dateKeyOrEvent): {label, icon, max, min, pop, popAtTime?}|null`, `fetchForecast(lat, lng, {fetchImpl, kv, now}): Promise<Forecast|null>`（1 時間は保存したものを使う。キーは緯度経度を小数 2 桁に丸めたもの）
+- Produces: `forecastUrl(lat, lng): string`, `describeWeather(code): {label, icon}`, `parseForecast(json): {daily: Record<DateKey,{code,max,min,pop}>, hourly: Record<LocalDateTime,number>}`, `weatherFor(forecast, dateKeyOrEvent): {label, icon, max, min, pop, popAtTime?}|null`, `fetchForecast(lat, lng, {fetchImpl, kv, now}): Promise<Forecast|null>`（1 時間は保存したものを使う。キーは緯度経度を小数 2 桁に丸めたもの。日本時間の 1 日に 200 回を超えて取りに行こうとしたら、取りに行かず保存分か null を返す。回数は kv の `weatherCount:YYYY-MM-DD` に数える）、`WEATHER_CREDIT = '天気予報: Open-Meteo'`（天気を出す画面には必ず小さく添える）
 - URL: `https://api.open-meteo.com/v1/forecast?latitude=..&longitude=..&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&hourly=precipitation_probability&timezone=Asia%2FTokyo&forecast_days=16`
 - 天気の対応: `0→晴れ ☀️`、`1,2→晴れ時々くもり 🌤️`、`3→くもり ☁️`、`45,48→霧 🌫️`、`51–57,61–67,80–82→雨 🌧️`、`71–77,85,86→雪 ❄️`、`95–99→雷雨 ⛈️`、それ以外→`{label:'', icon:''}`
 
-- [ ] **Step 1: 失敗するテストを書く**（対応表の各グループ、`weatherFor` で範囲外の日は null、時刻ありの予定は `popAtTime` にその時間の降水確率、通信が失敗したら `fetchForecast` が null を返し例外を出さない、1 時間以内の 2 回目は fetch を呼ばない）
+- [ ] **Step 1: 失敗するテストを書く**（対応表の各グループ、その日 200 回取りに行った後は fetch を呼ばない、`weatherFor` で範囲外の日は null、時刻ありの予定は `popAtTime` にその時間の降水確率、通信が失敗したら `fetchForecast` が null を返し例外を出さない、1 時間以内の 2 回目は fetch を呼ばない）
 - [ ] **Step 2〜4: 失敗を確かめ、実装し、通ることを確かめる。**
 - [ ] **Step 5: コミット** `feat: 天気予報`
 
@@ -414,7 +414,8 @@ test('行って戻っても同じ', () => assert.deepEqual(fromGoogle(toGoogle(f
 
 **Interfaces:**
 - Produces:
-  - `class ApiError extends Error { kind: 'offline'|'timeout'|'badKey'|'notFound'|'server' }`。`message` は日本語:
+  - `class ApiError extends Error { kind: 'offline'|'timeout'|'badKey'|'notFound'|'limit'|'server' }`。`message` は日本語:
+    - limit → `'今日は移動時間を計算できる回数を使い切りました。明日また計算できます。'`
     - offline・timeout → `'電波が弱いようです。少したってから、もう一度お試しください。'`
     - badKey → `'接続の設定が正しくありません。家族に連絡してください。'`
     - notFound → `'この予定は見つかりませんでした。'`
@@ -422,7 +423,7 @@ test('行って戻っても同じ', () => assert.deepEqual(fromGoogle(toGoogle(f
   - `createApi({url, key}, {fetchImpl = fetch, timeoutMs = 25000}) → Api`
   - `Api` の関数: `ping(): {version}`, `listCalendars(): {id, summary, primary, backgroundColor}[]`, `listEvents({calendarId, timeMin, timeMax, q?}): GoogleEvent[]`, `getEvent({calendarId, eventId})`, `insertEvent({calendarId, resource})`, `patchEvent({calendarId, eventId, resource})`, `deleteEvent({calendarId, eventId})`, `getSettings(): object|null`, `saveSettings(settings)`, `route({origin, destination}): RouteResult`, `geocode({address}): {address, lat, lng}|null`
   - `RouteResult = {withHighways: {minutes, km}|null, withoutHighways: {minutes, km}|null, destinationAddress: string|null, destination: {lat, lng}|null}`
-  - 送り方: `POST url`。ヘッダーは `Content-Type: text/plain;charset=utf-8`（Apps Script の CORS の事前確認を避けるため）。本文は `{"key","action","params"}`。action 名は `ping, calendars.list, events.list, events.get, events.insert, events.patch, events.delete, settings.get, settings.save, route, geocode`。返事は `{ok:true, data}` か `{ok:false, error:{code:'BAD_KEY'|'NOT_FOUND'|'INTERNAL'}}`。
+  - 送り方: `POST url`。ヘッダーは `Content-Type: text/plain;charset=utf-8`（Apps Script の CORS の事前確認を避けるため）。本文は `{"key","action","params"}`。action 名は `ping, calendars.list, events.list, events.get, events.insert, events.patch, events.delete, settings.get, settings.save, route, geocode`。返事は `{ok:true, data}` か `{ok:false, error:{code:'BAD_KEY'|'NOT_FOUND'|'LIMIT'|'INTERNAL'}}`。
   - `createDemoApi({now = () => new Date(), kv})` は `Api` と同じ関数を持つ。架空の見本の予定を、今日を基準にして作る。中身は次のとおり。
     - 今日から 2 日後 10:00〜11:00「眼科」。場所「さくら眼科」、病院、持ち物は病院セット。route は高速あり 25 分・高速なし 40 分。
     - 3 日後 14:30「歯医者」。route なし。
@@ -575,12 +576,14 @@ test('dist/Code.gs は最新', () => { /* build の出力 === 保存されてい
 **Interfaces:**
 - Produces:
   - action `route({origin, destination}) → RouteResult`。`Maps.newDirectionFinder().setOrigin().setDestination().setMode(DRIVING).setLanguage('ja').setRegion('jp')` を、`setAvoid(Maps.DirectionFinder.Avoid.HIGHWAYS)` あり・なしで 2 回呼ぶ。`minutes = Math.round(秒/60)`、`km = Math.round(m/100)/10`。status が `OK` でなければ、その道は null。
+    - 1 日の回数制限: スクリプトのプロパティ `ROUTE_COUNT_yyyy-MM-dd`（日本時間）に道順の回数を数え、今回の 2 回を足すと 100 を超えるなら地図を呼ばずに `LIMIT` を返す（Google の上限 1 日 1,000 回の 1 割）。古い日付のキーは毎晩の控えのときに消す。地図機能が上限の例外を出したときも `LIMIT` にする。
+    - geocode も同じ数え方で 1 日 50 回まで（自宅の住所を確かめるときだけ使う）。
   - action `geocode({address}) → {address, lat, lng}|null`（`Maps.newGeocoder().setLanguage('ja').setRegion('jp')`）
   - `nightlyBackup()`: 父の書き込めるカレンダー（`accessRole` が owner か writer）の予定を、400 日前から 3 年後まで `singleEvents: false` で取る。`控え_yyyy-MM-dd` シートに書く。列は「カレンダー, 予定ID, 状態, タイトル, 開始, 終了, 終日, 場所, メモ, 繰り返し, 元データ」。控えのシートは新しいほうから 14 枚だけ残す。
   - `onOpen()`: メニュー「ただしカレンダー」→「選んだ行の予定を戻す」
   - `restoreSelectedRow()`: 元データの JSON から `id, etag, htmlLink, iCalUID, recurringEventId, created, updated, creator, organizer` を除いて insert する。同じ id の予定がまだあれば、戻さずに「この予定は今もあります」と出す。
 
-- [ ] **Step 1: 失敗するテストを書く**（2 つの道の分数と km、片方が `ZERO_RESULTS` なら null、geocode が見つからなければ null、控えのシート名と行数、15 枚目で一番古いシートを消す、戻すときに id を除いて insert、すでにある予定は戻さない）
+- [ ] **Step 1: 失敗するテストを書く**（2 つの道の分数と km、片方が `ZERO_RESULTS` なら null、その日 98 回使った後の route は地図を呼ばずに `LIMIT`、日付が変われば数え直し、geocode が見つからなければ null、控えのシート名と行数、15 枚目で一番古いシートを消す、戻すときに id を除いて insert、すでにある予定は戻さない）
 - [ ] **Step 2〜4: 失敗を確かめ、実装し、`npm run build:gas` してから通ることを確かめる。**
 - [ ] **Step 5: コミット** `feat: Apps Script の地図・控え・戻す`
 
