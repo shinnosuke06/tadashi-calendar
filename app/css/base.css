@@ -31,10 +31,11 @@ button { cursor: pointer; }
 
 /* 上の段 */
 .bar {
-  flex: none; display: flex; align-items: center; gap: 0.35em; padding: 0.35em 0.5em 0.35em 0.7em;
+  flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25em 0.35em; padding: 0.35em 0.5em 0.35em 0.7em;
   background: var(--head); color: var(--head-text); border-bottom: 1px solid var(--line); font-size: min(1rem, 24px);
 }
-.bar h1 { flex: 1; min-width: 0; margin: 0; font-size: 1.15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 見出しは切らない。入りきらないときはボタンが次の行に回る */
+.bar h1 { flex: 1 0 auto; max-width: 100%; margin: 0; font-size: 1.15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar h1.center { text-align: center; }
 .bar h1 small { font-size: 0.62em; margin-right: 0.1em; }
 .hbtn {

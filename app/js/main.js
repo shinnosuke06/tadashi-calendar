@@ -12,6 +12,8 @@ import { h } from './ui/dom.js';
 import { setupView } from './ui/setup-view.js';
 import { monthView } from './ui/month-view.js';
 import { listView } from './ui/list-view.js';
+import { weekView } from './ui/week-view.js';
+import { dayView } from './ui/day-view.js';
 
 export const REQUIRED_GAS_VERSION = 1;
 const pad = n => String(n).padStart(2, '0');
@@ -22,6 +24,8 @@ const VIEWS = {
   setup: setupView,
   month: monthView,
   list: listView,
+  week: weekView,
+  day: dayView,
 };
 
 function placeholder(app, params, name) {

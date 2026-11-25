@@ -44,6 +44,7 @@ export async function openApp({
 } = {}) {
   const ctx = await browser.newContext({ ...devices[device], deviceScaleFactor: 1, timezoneId, locale: 'ja-JP' });
   const page = await ctx.newPage();
+  page.setDefaultTimeout(10000);
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.clock.install({ time: new Date(now) });
