@@ -193,7 +193,8 @@ export function createDemoApi({ now = () => new Date(), kv, isOffline = () => fa
     'settings.save': async ({ settings }) => { await kv.put(STORE, 'settings', settings); return null; },
     route: async ({ destination }) => {
       if (!destination || destination.includes('不明')) return { withHighways: null, withoutHighways: null, destinationAddress: null, destination: null };
-      const known = PLACES[destination];
+      const ll = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(destination);
+      const known = PLACES[destination] ?? (ll ? Object.values(PLACES).find(p => Math.abs(p.lat - ll[1]) < 0.0005 && Math.abs(p.lng - ll[2]) < 0.0005) : undefined);
       const h = hash(destination);
       const hw = known?.hw ?? 10 + (h % 30), nohw = known?.nohw ?? hw + 5 + (h % 15);
       return {
