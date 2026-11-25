@@ -198,7 +198,7 @@ test('十五夜（旧暦 8 月 15 日）は仏滅', () => {
   - Settings の形と初期値:
 ```js
 { version: 1, fontLevel: 2, theme: 'standard', udFont: false, startView: 'month', weekStart: 0,
-  showRokuyo: true, monthNames: true /* 月の表に予定の名前を出す。false なら色の点 */, visibleCalendars: null /* null = 父のメインのカレンダーだけ */,
+  showRokuyo: true, monthNames: true /* 月の表に予定の名前を出す。false なら色の点 */, monthScroll: 'h' /* 'h' 左右にめくる | 'v' 上下にスクロール */, visibleCalendars: null /* null = 父のメインのカレンダーだけ */,
   categories: [ {id:'hospital',name:'病院',colorId:'11'}, {id:'travel',name:'旅行',colorId:'7'},
                 {id:'family',name:'家族',colorId:'2'}, {id:'errand',name:'用事',colorId:'6'}, {id:'other',name:'その他',colorId:'8'} ],
   itemSets: [ {id:'hospital',name:'病院セット',items:['保険証','診察券','お薬手帳','お金']},
@@ -645,8 +645,12 @@ test('文字サイズの設定で根元の字の大きさが変わる', async ()
     - `weekLanes(weekStartKey, events: AppEvent[]): {lane: Map<AppEvent, number>, count: number}`。複数日の予定を、開始日・長いほうの順に、空いている一番上の段へ入れる。
     - `cellItems(key, weekLanes, dayEvents): (AppEvent|null)[]`。先頭は段に合わせた複数日の予定（空き段は null）で、末尾の空きは削る。その後に 1 日の予定が続く。
     - `focusMonth(week0, topWeek, visibleRows): [y, m]`（見えている上から `min(2, visibleRows-1)` 番目の週の最後の日の月）
+    - `monthPageWeeks([y, m], weekStart): {ws: DateKey, rows: number}`（横の形の 1 ページ: その月の 1 日を含む週から、末日を含む週まで）
+    - `monthList(today, before = 12, after = 24): [y, m][]`
   - `renderEventRow(ev, ctx): HTMLElement`。左の列に時刻（`.ev-t1` は開始で 1.12em の太字、`.ev-t2` は終了で 0.75em。終日なら「終日」）、色の帯、`.ev-title`、出発の目安があれば `.ev-hint`（0.8em）で `departureHintText`。`pending` なら「まだ保存中」の印。押すと `#/event/...` へ移る。
-  - 月の画面（設計書 9.6 のとおり）:
+  - 月の画面（設計書 9.6 のとおり。`settings.monthScroll` が `'h'` なら横の形、`'v'` なら縦の形）:
+    - 横の形: `.hmonths`（`display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; touch-action: pan-x`）に、月ごとの `.hpage[data-ym]`（幅 100%、`scroll-snap-stop: always`、行数 = `monthPageWeeks().rows`）を `monthList` の分だけ並べる。止まったら（80ms 待つ）見出しの月を変える。予定が出ている間は `.locked`（横にめくれない）にし、押した週が隠れるときは `.hmonths` を `translateY` で上へずらす。薄い日（その月以外）を押すと、その月へスライドし、止まってから予定を出す。「今日」は今月のページへスライドしてから今日の予定を出す。
+    - 縦の形（以下）:
     - 年月の見出し（`<small>2026年</small>11月`）。曜日の行。
     - `.months` は週の行（`.week`、高さ = 表の高さ ÷ 6）を縦に並べ、`scroll-snap-type: y mandatory` で週の区切りに止める。
     - マス（`.cell[data-d]`）の中は、`.num`（`clamp(16px, 0.85em, 28px)`）と、六曜がオンのときの `.l2`（六曜と祝日名）、予定の札 `.lb`（`clamp(11px, 0.5em, 15px)`、最大 3 つと「+n」）。六曜がオフのときは、祝日名を `.num` の右に出す。
@@ -684,7 +688,9 @@ test('見出しの月', () => {
 
 ```js
 // tests/e2e/month-list.test.js
-test('月の表に同じ日付が 2 回出ない', async () => { /* .cell[data-d] の値がすべて異なる */ });
+test('縦の形: 月の表に同じ日付が 2 回出ない', async () => { /* monthScroll 'v' → .cell[data-d] の値がすべて異なる */ });
+test('横の形: 上下に動かず、左右にめくれる', async () => { /* 初期値 'h' → .hmonths の overflowY が hidden。scrollLeft を 1 ページ分増やす → 見出しが「12月」→「1月」。1 つの .hpage の中の data-d はすべて異なる */ });
+test('横の形: 薄い日を押すとその月へめくって予定が出る', async () => { /* 12 月のページで 1/1 の薄いマスを押す → 見出し「1月」、.sheet.open */ });
 test('旅行の帯がつながる', async () => {
   // 12/11 と 12/12 の .lb.span: 左の帯の right >= 右の帯の left - 0.5、top が同じ
 });
