@@ -16,6 +16,8 @@ import { weekView } from './ui/week-view.js';
 import { dayView } from './ui/day-view.js';
 import { eventDetailView } from './ui/event-detail.js';
 import { eventFormView } from './ui/event-form.js';
+import { searchView } from './ui/search-view.js';
+import { settingsView } from './ui/settings-view.js';
 
 export const REQUIRED_GAS_VERSION = 1;
 const pad = n => String(n).padStart(2, '0');
@@ -31,6 +33,8 @@ const VIEWS = {
   event: eventDetailView,
   new: eventFormView,
   edit: eventFormView,
+  search: searchView,
+  settings: settingsView,
 };
 
 function placeholder(app, params, name) {
