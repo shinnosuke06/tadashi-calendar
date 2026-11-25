@@ -1,5 +1,5 @@
 // Apps Script の組み込みサービスの偽物（テスト用）。呼び出しを記録する。
-export function createFakeGas({ pages = null } = {}) {
+export function createFakeGas({ pages = null, directions = null, geocodeResults = null, reverseResults = null } = {}) {
   const log = { calls: [], logger: [], errors: [] };
   const props = new Map();
   let uuid = 0;
@@ -64,7 +64,33 @@ export function createFakeGas({ pages = null } = {}) {
     },
   };
 
+  // 地図（Maps サービス）の偽物
+  const Maps = {
+    DirectionFinder: { Mode: { DRIVING: 'driving' }, Avoid: { HIGHWAYS: 'highways' } },
+    newDirectionFinder() {
+      const q = {};
+      const b = {
+        setOrigin: v => { q.origin = v; return b; }, setDestination: v => { q.destination = v; return b; },
+        setMode: v => { q.mode = v; return b; }, setLanguage: v => { q.language = v; return b; }, setRegion: v => { q.region = v; return b; },
+        setAvoid: v => { q.avoid = v; return b; },
+        getDirections: () => { record('Maps.directions', [q]); return directions ? directions(q) : { status: 'ZERO_RESULTS', routes: [] }; },
+      };
+      return b;
+    },
+    newGeocoder() {
+      const q = {};
+      const g = {
+        setLanguage: v => { q.language = v; return g; }, setRegion: v => { q.region = v; return g; },
+        setBounds: (a, b, c, d) => { q.bounds = [a, b, c, d]; return g; },
+        geocode: address => { record('Maps.geocode', [{ ...q, address }]); return geocodeResults ? geocodeResults(address, q) : { status: 'ZERO_RESULTS', results: [] }; },
+        reverseGeocode: (lat, lng) => { record('Maps.reverse', [{ lat, lng }]); return reverseResults ? reverseResults(lat, lng) : { status: 'ZERO_RESULTS', results: [] }; },
+      };
+      return g;
+    },
+  };
+
   const ctx = {
+    Maps,
     console: { log: () => {}, error: (...a) => log.errors.push(a.join(' ')), warn: () => {} },
     JSON, Date, Math, Object, Array, String, Number, Error, RegExp, Boolean, Map, Set, encodeURIComponent,
     PropertiesService: {

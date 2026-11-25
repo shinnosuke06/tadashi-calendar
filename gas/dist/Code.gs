@@ -126,6 +126,87 @@ function listCalendars_() {
   }));
 }
 
+// ---- 40_maps.js ----
+// 地図（道順・住所探し）。Apps Script に最初からある地図機能を使い、料金はかからない。
+// Google の上限（個人のアカウントは 1 日 1,000 回）の 1 割に収まるよう、1 日 100 回までに制限する。
+const DAILY_ROUTE_LIMIT = 100;
+const DAILY_GEO_LIMIT = 100;
+
+function limitError_() {
+  const e = new Error('LIMIT');
+  e.code = 'LIMIT';
+  return e;
+}
+
+// その日（日本時間）の回数を数える。足すと上限を超えるなら LIMIT
+function useQuota_(prefix, n, limit) {
+  const key = prefix + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  const used = Number(props_().getProperty(key) || 0);
+  if (used + n > limit) throw limitError_();
+  props_().setProperty(key, String(used + n));
+}
+
+function mapsCall_(fn) {
+  try {
+    return fn();
+  } catch (e) {
+    if (/too many times/i.test(String(e && e.message))) throw limitError_();
+    throw e;
+  }
+}
+
+function oneRoute_(origin, destination, avoidHighways) {
+  const f = Maps.newDirectionFinder().setOrigin(origin).setDestination(destination)
+    .setMode(Maps.DirectionFinder.Mode.DRIVING).setLanguage('ja').setRegion('jp');
+  if (avoidHighways) f.setAvoid(Maps.DirectionFinder.Avoid.HIGHWAYS);
+  const res = mapsCall_(() => f.getDirections());
+  if (!res || res.status !== 'OK' || !res.routes || !res.routes.length) return null;
+  const leg = res.routes[0].legs[0];
+  return { minutes: Math.round(leg.duration.value / 60), km: Math.round(leg.distance.value / 100) / 10, leg: leg };
+}
+
+function cleanAddress_(a) {
+  return String(a || '').replace(/^日本、\s*/, '').replace(/^〒\d{3}-\d{4}\s*/, '');
+}
+
+function route_(p) {
+  useQuota_('ROUTE_COUNT_', 2, DAILY_ROUTE_LIMIT);
+  const withHighways = oneRoute_(p.origin, p.destination, false);
+  const withoutHighways = oneRoute_(p.origin, p.destination, true);
+  const leg = (withHighways || withoutHighways || {}).leg;
+  const strip = r => (r ? { minutes: r.minutes, km: r.km } : null);
+  return {
+    withHighways: strip(withHighways),
+    withoutHighways: strip(withoutHighways),
+    destinationAddress: leg ? cleanAddress_(leg.end_address) : null,
+    destination: leg ? { lat: leg.end_location.lat, lng: leg.end_location.lng } : null,
+  };
+}
+
+function placeName_(r) {
+  const named = (r.address_components || []).find(c => (c.types || []).some(t => t === 'establishment' || t === 'point_of_interest'));
+  return named ? named.long_name : cleanAddress_(r.formatted_address);
+}
+
+function geocode_(p) {
+  useQuota_('GEO_COUNT_', 1, DAILY_GEO_LIMIT);
+  const g = Maps.newGeocoder().setLanguage('ja').setRegion('jp');
+  if (p.near) g.setBounds(p.near.lat - 0.27, p.near.lng - 0.33, p.near.lat + 0.27, p.near.lng + 0.33);
+  const res = mapsCall_(() => g.geocode(p.address));
+  const results = (res && res.status === 'OK' ? res.results : []).slice(0, 5).map(r => ({
+    name: placeName_(r), address: cleanAddress_(r.formatted_address),
+    lat: r.geometry.location.lat, lng: r.geometry.location.lng,
+  }));
+  return { results: results };
+}
+
+function reverseGeocode_(p) {
+  useQuota_('GEO_COUNT_', 1, DAILY_GEO_LIMIT);
+  const res = mapsCall_(() => Maps.newGeocoder().setLanguage('ja').setRegion('jp').reverseGeocode(p.lat, p.lng));
+  if (!res || res.status !== 'OK' || !res.results.length) return null;
+  return { address: cleanAddress_(res.results[0].formatted_address) };
+}
+
 // ---- 50_settings.js ----
 // 設定は「設定」シートの A1 に JSON で、B1 に保存した日時を入れる
 function settingsSheet_() {
@@ -144,4 +225,81 @@ function saveSettings_(settings) {
   sheet.getRange('A1').setValue(JSON.stringify(settings));
   sheet.getRange('B1').setValue(Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'));
   return null;
+}
+
+// ---- 60_backup.js ----
+// 毎晩の控え（スプレッドシートに予定を丸ごと写す）と、控えから予定を戻す操作
+const BACKUP_PREFIX = '控え_';
+const BACKUP_KEEP = 14;
+const BACKUP_HEADER = ['カレンダー', '予定ID', '状態', 'タイトル', '開始', '終了', '終日', '場所', 'メモ', '繰り返し', '元データ'];
+const STRIP_ON_RESTORE = ['id', 'etag', 'htmlLink', 'iCalUID', 'recurringEventId', 'created', 'updated', 'creator', 'organizer'];
+
+function nightlyBackup() {
+  const now = new Date();
+  const timeMin = new Date(now.getTime() - 400 * 86400000).toISOString();
+  const timeMax = new Date(now.getTime() + 3 * 366 * 86400000).toISOString();
+  const rows = [];
+  const cals = (Calendar.CalendarList.list().items || []).filter(c => c.accessRole === 'owner' || c.accessRole === 'writer');
+  cals.forEach(c => {
+    let pageToken;
+    do {
+      const opt = { timeMin: timeMin, timeMax: timeMax, singleEvents: false, maxResults: 2500 };
+      if (pageToken) opt.pageToken = pageToken;
+      const res = Calendar.Events.list(c.id, opt);
+      (res.items || []).forEach(ev => {
+        const allDay = !!(ev.start && ev.start.date);
+        rows.push([c.id, ev.id, ev.status || '', ev.summary || '',
+          allDay ? ev.start.date : (ev.start && ev.start.dateTime) || '',
+          allDay ? ev.end.date : (ev.end && ev.end.dateTime) || '',
+          allDay, ev.location || '', ev.description || '', (ev.recurrence || []).join('\n'), JSON.stringify(ev)]);
+      });
+      pageToken = res.nextPageToken;
+    } while (pageToken);
+  });
+
+  const ss = spreadsheet_();
+  const name = BACKUP_PREFIX + Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
+  const old = ss.getSheetByName(name);
+  if (old) ss.deleteSheet(old);
+  const sheet = ss.insertSheet(name);
+  sheet.getRange(1, 1, 1, BACKUP_HEADER.length).setValues([BACKUP_HEADER]);
+  if (rows.length) sheet.getRange(2, 1, rows.length, BACKUP_HEADER.length).setValues(rows);
+  sheet.setFrozenRows(1);
+
+  // 古い控えを消す（新しいほうから 14 枚残す）
+  ss.getSheets().filter(s => s.getName().indexOf(BACKUP_PREFIX) === 0)
+    .sort((a, b) => (a.getName() < b.getName() ? 1 : -1))
+    .slice(BACKUP_KEEP).forEach(s => ss.deleteSheet(s));
+
+  // 古い日付の回数の記録を消す
+  const today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
+  props_().getKeys().forEach(k => {
+    if (/^(ROUTE|GEO)_COUNT_/.test(k) && k.slice(-10) !== today) props_().deleteProperty(k);
+  });
+}
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('ただしカレンダー').addItem('選んだ行の予定を戻す', 'restoreSelectedRow').addToUi();
+}
+
+function restoreSelectedRow() {
+  const ui = SpreadsheetApp.getUi();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  if (sheet.getName().indexOf(BACKUP_PREFIX) !== 0) { ui.alert('控えのシートで、戻したい予定の行を選んでから実行してください。'); return; }
+  const row = sheet.getActiveRange().getRow();
+  if (row < 2) { ui.alert('戻したい予定の行を選んでから実行してください。'); return; }
+  const values = sheet.getRange(row, 1, 1, BACKUP_HEADER.length).getValues()[0];
+  const calendarId = values[0];
+  const raw = JSON.parse(values[10]);
+  try {
+    const now = Calendar.Events.get(calendarId, raw.id);
+    if (now && now.status !== 'cancelled') { ui.alert('この予定は今もあります'); return; }
+  } catch (e) {
+    if (!/Not Found|has been deleted/i.test(String(e && e.message))) throw e;
+  }
+  const resource = {};
+  Object.keys(raw).forEach(k => { if (STRIP_ON_RESTORE.indexOf(k) < 0) resource[k] = raw[k]; });
+  resource.status = 'confirmed';
+  Calendar.Events.insert(resource, calendarId);
+  ui.alert('戻しました：' + (raw.summary || '（タイトルなし）'));
 }
