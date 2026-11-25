@@ -77,3 +77,19 @@ export function mergeSettings(saved) {
     defaultNotify: notify(s.defaultNotify, d.defaultNotify),
   };
 }
+
+// 設定を画面に反映する（文字の大きさとテーマの色）
+const THEME_VARS = {
+  bg: '--bg', surface: '--surface', surface2: '--surface2', text: '--text', subtext: '--sub', border: '--line',
+  accent: '--accent', accentText: '--accent-text', saturday: '--sat', sunday: '--sun', today: '--today', danger: '--danger',
+  head: '--head', headText: '--head-text', band: '--band',
+};
+export function applySettings(doc, settings) {
+  const root = doc.documentElement;
+  const theme = THEMES[settings.theme] ?? THEMES.standard;
+  root.style.setProperty('--font-base', `${FONT_LEVELS[settings.fontLevel] ?? FONT_LEVELS[2]}px`);
+  for (const [k, v] of Object.entries(THEME_VARS)) root.style.setProperty(v, theme[k]);
+  root.dataset.theme = settings.theme;
+  root.dataset.udfont = String(!!settings.udFont);
+  doc.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.head);
+}
