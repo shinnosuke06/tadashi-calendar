@@ -28,3 +28,8 @@ test('おかしな値の直し方', () => {
   assert.equal(mergeSettings({ weekStart: 1 }).weekStart, 1);
   assert.deepEqual(mergeSettings({ home: { address: '横浜', lat: 35.4, lng: 139.6 } }).home, { address: '横浜', lat: 35.4, lng: 139.6 });
 });
+test('地図の絵（初期値は国土地理院）', () => {
+  assert.equal(DEFAULT_SETTINGS.mapTiles, 'gsi');
+  assert.equal(mergeSettings({ mapTiles: 'osm' }).mapTiles, 'osm');
+  assert.equal(mergeSettings({ mapTiles: 'google' }).mapTiles, 'gsi');
+});

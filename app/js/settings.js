@@ -4,7 +4,7 @@ import { GOOGLE_EVENT_COLORS } from './colors.js';
 
 export const DEFAULT_SETTINGS = Object.freeze({
   version: 1, fontLevel: 2, theme: 'standard', udFont: false, startView: 'month', weekStart: 0,
-  showRokuyo: true, monthNames: true, monthScroll: 'h', visibleCalendars: null,
+  showRokuyo: true, monthNames: true, monthScroll: 'h', mapTiles: 'gsi', visibleCalendars: null,
   categories: [
     { id: 'hospital', name: '病院', colorId: '11' }, { id: 'travel', name: '旅行', colorId: '7' },
     { id: 'family', name: '家族', colorId: '2' }, { id: 'errand', name: '用事', colorId: '6' }, { id: 'other', name: 'その他', colorId: '8' },
@@ -67,6 +67,7 @@ export function mergeSettings(saved) {
     showRokuyo: bool(s.showRokuyo, d.showRokuyo),
     monthNames: bool(s.monthNames, d.monthNames),
     monthScroll: oneOf(s.monthScroll, ['h', 'v'], d.monthScroll),
+    mapTiles: oneOf(s.mapTiles, ['gsi', 'osm'], d.mapTiles),
     visibleCalendars: Array.isArray(s.visibleCalendars) ? strList(s.visibleCalendars) : null,
     categories: list(s.categories, fixCategory, d.categories),
     itemSets: Array.isArray(s.itemSets) ? s.itemSets.map(fixItemSet).filter(Boolean) : clone(d.itemSets),

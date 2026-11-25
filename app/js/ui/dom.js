@@ -25,3 +25,10 @@ export function clear(el) {
   while (el.firstChild) el.firstChild.remove();
   return el;
 }
+
+// 中身を入れ替える（配列はならし、null や false は飛ばす。h() と同じ決まり）
+export function fill(el, ...children) {
+  clear(el);
+  append(el, children);
+  return el;
+}
