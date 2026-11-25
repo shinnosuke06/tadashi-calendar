@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 費用は 0 円。有料の API や CDN は使わない。外部へ通信してよいのは、Apps Script の URL、`api.open-meteo.com`、地図のタイル（`cyberjapandata.gsi.go.jp` か `tile.openstreetmap.org` のどちらか、設計書 14 章で決める）だけ。
+- 費用は 0 円。有料の API や CDN は使わない。外部へ通信してよいのは、Apps Script の URL、`api.open-meteo.com`、地図のタイル（`cyberjapandata.gsi.go.jp`。家族が切り替えたときだけ `tile.openstreetmap.org`）だけ。
 - 公開リポジトリなので、父の予定・住所・合言葉・Apps Script の URL をコード・テスト・テスト用データに入れない（見本の予定は架空のものにする）。
 - viewport は `width=device-width, initial-scale=1, viewport-fit=cover` だけにする。`maximum-scale` と `user-scalable` は書かない（指での拡大を禁止しない）。
 - 文字サイズは 5 段階 `[16, 18, 22, 26, 32]`px。初期値は 22px（2 番目、0 から数えた番号）。
@@ -774,7 +774,7 @@ test('繰り返しは 3 つから選ぶ', async () => { /* 内科 → この予�
   - よく使う予定のボタン（押すと、タイトル・種類・場所・長さ・持ち物・通知・メモを入れる）
   - タイトル、日付（`input type=date`）、「終日」の切り替え、開始・終了の時刻（`input type=time`、選んだ値をすぐ下に大きく表示）。複数日なら終わりの日。
   - 場所（入力欄と「地図で探す」ボタン）、出発する場所（「自宅」または「別の場所」。別の場所も「地図で探す」で選べる）、種類（色付きの大きなボタン）
-  - `openPlacePicker({query, near}) → Promise<{name, address, lat, lng}|null>`（`place-picker.js`）: 全画面で開く。上に検索欄（初期値は入力中の場所）と「探す」、候補の一覧（名前を大きく、住所を小さく。押すと選ぶ）、その下に地図（Leaflet。タイルの URL は `app/js/config.js` の `MAP_TILES` で切り替える。国土地理院 `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png` と OpenStreetMap `https://tile.openstreetmap.org/{z}/{x}/{y}.png` を用意し、どちらも出典を地図の右下に出す。どちらを初期値にするかは設計書 14 章の答えで決める）。地図を押すとピンが動き、`reverseGeocode` で住所を出し直す。一番下に「この場所にする」「やめる」。候補が 0 件なら「見つかりませんでした。住所で探すか、地図を押して選んでください」。`LIMIT` のときは `ApiError` の文を出す。
+  - `openPlacePicker({query, near}) → Promise<{name, address, lat, lng}|null>`（`place-picker.js`）: 全画面で開く。上に検索欄（初期値は入力中の場所）と「探す」、候補の一覧（名前を大きく、住所を小さく。押すと選ぶ）、その下に地図（Leaflet。タイルの URL は `app/js/config.js` の `MAP_TILES` で切り替える。国土地理院 `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png` と OpenStreetMap `https://tile.openstreetmap.org/{z}/{x}/{y}.png` を用意し、どちらも出典を地図の右下に出す。初期値は国土地理院。家族向けの設定で OpenStreetMap に切り替えられる）。地図を押すとピンが動き、`reverseGeocode` で住所を出し直す。一番下に「この場所にする」「やめる」。候補が 0 件なら「見つかりませんでした。住所で探すか、地図を押して選んでください」。`LIMIT` のときは `ApiError` の文を出す。
   - 選んだ場所は、場所の欄に `name`（なければ住所）を入れ、予定の `geo` と、移動時間の計算に使う住所（`address`）を記録する。
   - 繰り返し（なし・毎日・毎週・毎月（同じ日）・毎月（第 n 曜日）・毎年と、終わり）。扱えない繰り返しは「Google で設定された繰り返し（ここでは直せません）」と出して触れないようにする。
   - 通知（オン・オフと選択肢のチェック。5 つ選んだら残りは押せない。「出発の目安の時刻」は route がないと押せず、「場所を入れて保存すると選べます」と添える）
