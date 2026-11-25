@@ -41,7 +41,7 @@ export function createShell(root, { onTab, onSearch, onSettings }) {
     },
     setTitle(title) {
       const h1 = bar.querySelector('h1');
-      if (h1) clear(h1).append(title);
+      if (h1) clear(h1).append(...[title].flat());
     },
     showToast(message, ms = 2600) {
       const t = h('div', { class: 'toast', role: 'status' }, message);

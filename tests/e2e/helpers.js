@@ -47,7 +47,7 @@ export async function openApp({
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.clock.install({ time: new Date(now) });
-  await page.route('https://api.open-meteo.com/**', r => r.fulfill({ json: weather }));
+  await page.route('https://api.open-meteo.com/**', r => r.fulfill({ json: weather, headers: { 'Access-Control-Allow-Origin': '*' } }));
   await page.route('https://cyberjapandata.gsi.go.jp/**', r => r.fulfill({ body: PNG_1x1, contentType: 'image/png' }));
   await page.route('https://tile.openstreetmap.org/**', r => r.fulfill({ body: PNG_1x1, contentType: 'image/png' }));
   await page.goto(`${server.url}/`);
@@ -55,10 +55,31 @@ export async function openApp({
   const data = { settings: { fontLevel, theme, home: HOME, ...settings } };
   if (connected) data.connection = { mode: 'demo' };
   await seed(page, data);
+  // # だけ違う URL への移動は読み直しにならないので、いったん離れてから開く
+  await page.goto('about:blank');
   await page.goto(`${server.url}/${hash}`);
-  await page.reload();
   await page.waitForSelector('#app[data-ready]');
   return { page, ctx, errors, url: server.url, close: () => ctx.close() };
 }
 
 export const fontSizes = (page, selector) => page.$$eval(selector, els => els.map(e => parseFloat(getComputedStyle(e).fontSize)));
+
+// お試しの予定（Google の形）を足して開き直す
+export async function addDemoEvents(page, events) {
+  await page.evaluate(async evs => {
+    const db = await new Promise((resolve, reject) => { const r = indexedDB.open('tadashi-calendar', 1); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
+    const get = () => new Promise(resolve => { const tx = db.transaction('demo'); const q = tx.objectStore('demo').get('events'); q.onsuccess = () => resolve(q.result ?? []); });
+    const list = await get();
+    await new Promise(resolve => { const tx = db.transaction('demo', 'readwrite'); tx.objectStore('demo').put([...list, ...evs], 'events'); tx.oncomplete = resolve; });
+    db.close();
+  }, events);
+  await page.reload();
+  await page.waitForSelector('#app[data-ready]');
+}
+
+export const timed = (id, date, hhmm, title) => ({
+  id, status: 'confirmed', summary: title,
+  start: { dateTime: `${date}T${hhmm}:00+09:00`, timeZone: 'Asia/Tokyo' },
+  end: { dateTime: `${date}T${String(Number(hhmm.slice(0, 2)) + 1).padStart(2, '0')}${hhmm.slice(2)}:00+09:00`, timeZone: 'Asia/Tokyo' },
+  reminders: { useDefault: true },
+});

@@ -10,6 +10,8 @@ import { createShell } from './ui/shell.js';
 import { installKeyboardHelper } from './ui/keyboard.js';
 import { h } from './ui/dom.js';
 import { setupView } from './ui/setup-view.js';
+import { monthView } from './ui/month-view.js';
+import { listView } from './ui/list-view.js';
 
 export const REQUIRED_GAS_VERSION = 1;
 const pad = n => String(n).padStart(2, '0');
@@ -18,6 +20,8 @@ const ymOf = key => key.slice(0, 7);
 // 画面の一覧（まだない画面は「準備中」）
 const VIEWS = {
   setup: setupView,
+  month: monthView,
+  list: listView,
 };
 
 function placeholder(app, params, name) {
