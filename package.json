@@ -1,0 +1,12 @@
+{
+  "name": "tadashi-calendar",
+  "private": true,
+  "type": "module",
+  "description": "父のための大きな字のカレンダー（Web アプリ + Google Apps Script）",
+  "scripts": {
+    "test": "TZ=America/New_York node --test 'tests/unit/**/*.test.js' 'tests/gas/**/*.test.js'",
+    "test:e2e": "node --test --test-concurrency=1 'tests/e2e/**/*.test.js'",
+    "build:gas": "node scripts/build-gas.mjs",
+    "serve": "node scripts/serve.mjs"
+  }
+}
