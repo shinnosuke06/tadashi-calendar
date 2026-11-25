@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 費用は 0 円。有料の API や CDN は使わない。外部へ通信してよいのは、Apps Script の URL と `api.open-meteo.com` だけ。
+- 費用は 0 円。有料の API や CDN は使わない。外部へ通信してよいのは、Apps Script の URL、`api.open-meteo.com`、地図のタイル（`cyberjapandata.gsi.go.jp` か `tile.openstreetmap.org` のどちらか、設計書 14 章で決める）だけ。
 - 公開リポジトリなので、父の予定・住所・合言葉・Apps Script の URL をコード・テスト・テスト用データに入れない（見本の予定は架空のものにする）。
 - viewport は `width=device-width, initial-scale=1, viewport-fit=cover` だけにする。`maximum-scale` と `user-scalable` は書かない（指での拡大を禁止しない）。
 - 文字サイズは 5 段階 `[16, 18, 22, 26, 32]`px。初期値は 22px（2 番目、0 から数えた番号）。
