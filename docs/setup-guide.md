@@ -23,16 +23,18 @@
 
 ## 1. アプリを公開する（GitHub）
 
-アプリの画面は GitHub Pages という無料の置き場所から配ります。最初に 1 回だけ行います。
+アプリの画面は GitHub Pages という無料の置き場所から配ります。最初に 1 回だけ、GitHub の画面（パソコンのブラウザ）で行います。
 
-1. GitHub でこのリポジトリを開き、上の **Settings** → 左の **Pages** を開きます。
-2. **Build and deployment** の **Source** を **GitHub Actions** にします。
-3. 作業用のブランチを **main** に入れます（プルリクエストを作って **Merge**）。
-4. 上の **Actions** を開き、「公開（GitHub Pages）」が緑のチェックになるまで待ちます（数分）。
-5. Settings → Pages に出る公開アドレスを控えます。
+1. **Pages を有効にする**: リポジトリの上の **Settings** → 左の **Pages** → **Build and deployment** の **Source** を **GitHub Actions** にします。
+2. **main ブランチを作る**: リポジトリの **Code** の画面で、左上のブランチ名のボタン（`claude/` で始まる名前）を押し、`main` と入力して **Create branch main from claude/…** を押します。
+3. **main をいつものブランチにする**: **Settings** → **General** → **Default branch** の **⇄**（切り替え）ボタン → **main** → **Update** → 確認の画面で **I understand, update the default branch.** を押します。
+   （公開は「いつものブランチ」からしか許されないためです）
+4. **公開する**: 上の **Actions** → 左の「**公開（GitHub Pages）**」→ 右の **Run workflow** → ブランチが **main** になっていることを確かめて **Run workflow**。緑のチェックになるまで待ちます（数分）。
+5. **Settings** → **Pages** に出る公開アドレスを控えます。
    形は `https://（GitHub の名前）.github.io/tadashi-calendar/` です。
 
-> main に新しい変更を入れるたびに、自動でテスト → 公開されます。iPhone のアプリは、次に開いたときに新しい版に切り替わります。
+2 回目からは、直した内容を **プルリクエスト** で main に入れる（**Merge**）と、自動でテスト → 公開されます。
+iPhone のアプリは、次に開いたときに新しい版に切り替わります。
 
 ---
 
