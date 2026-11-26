@@ -176,3 +176,21 @@ test('電波がない間に作った予定は、送ったあとも仮の番号�
   assert.doesNotMatch(got.id, /^tmp-/);
   assert.equal(await repo.resolveId(saved.id), got.id);
 });
+
+test('Google には届いたのに返事が切れても、送り直しで予定が 2 つにならない', async () => {
+  const { repo, spy } = await setup();
+  const realInsert = spy.api.insertEvent;
+  let cut = true;
+  spy.api.insertEvent = async p => {
+    const made = await realInsert(p);
+    if (cut) { cut = false; throw new ApiError('timeout'); } // 作れたが、返事が届かなかった
+    return made;
+  };
+  const saved = await repo.saveEvent(newEvent({ title: '一度だけの予定' }));
+  assert.equal(saved.pending, true);
+  assert.match(spy.last('insertEvent').resource.id, /^[0-9a-v]{26}$/);
+  await repo.syncOutbox();
+  const got = (await loadDec(repo)).filter(e => e.title === '一度だけの予定');
+  assert.equal(got.length, 1);
+  assert.equal(got[0].pending, false);
+});

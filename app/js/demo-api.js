@@ -165,7 +165,10 @@ export function createDemoApi({ now = () => new Date(), kv, isOffline = () => fa
       const { events } = await load();
       const seq = ((await kv.get(STORE, 'seq')) ?? 0) + 1;
       await kv.put(STORE, 'seq', seq);
-      const ev = { ...clone(resource), id: `demo-new-${seq}`, status: 'confirmed' };
+      // 本物と同じく、同じ番号で 2 回届いたら、すでにある予定を返す
+      const same = resource.id && events.find(e => e.id === resource.id);
+      if (same) return clone(same);
+      const ev = { ...clone(resource), id: resource.id ?? `demo-new-${seq}`, status: 'confirmed' };
       events.push(ev);
       await saveEvents(events);
       return clone(ev);

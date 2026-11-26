@@ -55,7 +55,12 @@ export function createFakeGas({ pages = null, directions = null, geocodeResults 
         return { items: [...events.values()].filter(e => e.calendarId === calendarId) };
       },
       get(calendarId, eventId) { record('Events.get', [calendarId, eventId]); const e = events.get(eventId); if (!e) throw notFound(); return e; },
-      insert(resource, calendarId) { record('Events.insert', [resource, calendarId]); const e = { ...resource, id: `ev-${events.size + 1}`, calendarId }; events.set(e.id, e); return e; },
+      insert(resource, calendarId) {
+        record('Events.insert', [resource, calendarId]);
+        // 本物と同じく、番号を指定して作れる。同じ番号がすでにあれば断られる
+        if (resource.id && events.has(resource.id)) throw new Error('API call to calendar.events.insert failed with error: The requested identifier already exists.');
+        const e = { ...resource, id: resource.id ?? `ev-${events.size + 1}`, calendarId }; events.set(e.id, e); return e;
+      },
       patch(resource, calendarId, eventId) { record('Events.patch', [resource, calendarId, eventId]); const e = events.get(eventId); if (!e) throw notFound(); const n = { ...e, ...resource }; events.set(eventId, n); return n; },
       remove(calendarId, eventId) { record('Events.remove', [calendarId, eventId]); if (!events.delete(eventId)) throw notFound(); },
     },

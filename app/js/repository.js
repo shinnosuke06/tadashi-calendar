@@ -11,6 +11,11 @@ const nowLocal = d => new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 
 const sameGeo = (a, b) => (!a && !b) || (a && b && a.lat === b.lat && a.lng === b.lng);
 const NETWORK = new Set(['offline', 'timeout', 'server', 'badKey']);
 
+// 新しい予定の番号を画面で決める（Google が受け付ける 0-9・a-v の 26 文字）。
+// 返事が切れて送り直しても、Google 側で同じ予定だと分かるので 2 つにならない
+const B32 = '0123456789abcdefghijklmnopqrstuv';
+export const newEventId = () => Array.from(crypto.getRandomValues(new Uint8Array(26)), b => B32[b & 31]).join('');
+
 // [startKey, endKey] を含む月の一覧と、月の最初の日・最後の日
 function monthsBetween(startKey, endKey) {
   const out = [];
@@ -78,6 +83,7 @@ export function createRepository({ api, kv, getSettings, now = () => new Date() 
       if (ev.recurringEventId && scope !== 'one') return saveSeries(ev, scope, original, settings);
       const resource = toGoogle(ev, settings);
       if (!ev.id) {
+        resource.id = newEventId();
         try {
           const made = await api.insertEvent({ calendarId: ev.calendarId, resource });
           ev = { ...ev, id: made.id, pending: false };

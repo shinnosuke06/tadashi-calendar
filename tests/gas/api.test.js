@@ -72,3 +72,15 @@ test('合言葉の作り直し', () => {
   assert.notEqual(props.get('API_KEY'), KEY);
   assert.deepEqual(post({ key: KEY, action: 'ping' }), { ok: false, error: { code: 'BAD_KEY' } });
 });
+test('events.insert は同じ番号で 2 回届いても、予定を 1 つだけ作る（送り直し対策）', () => {
+  const { post, KEY } = ready();
+  const params = { calendarId: 'primary', resource: { id: 'abcdefghij0123456789', summary: '眼科' } };
+  const first = post({ key: KEY, action: 'events.insert', params });
+  const again = post({ key: KEY, action: 'events.insert', params });
+  assert.equal(first.ok, true);
+  assert.equal(again.ok, true);
+  assert.equal(again.data.id, 'abcdefghij0123456789');
+  assert.equal(again.data.summary, '眼科');
+  const list = post({ key: KEY, action: 'events.list', params: { calendarId: 'primary', timeMin: 'a', timeMax: 'b' } }).data;
+  assert.equal(list.length, 1);
+});

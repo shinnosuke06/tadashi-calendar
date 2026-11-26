@@ -60,7 +60,7 @@ const ACTIONS = {
   'calendars.list': () => listCalendars_(),
   'events.list': p => listEvents_(p),
   'events.get': p => Calendar.Events.get(p.calendarId, p.eventId),
-  'events.insert': p => Calendar.Events.insert(p.resource, p.calendarId),
+  'events.insert': p => insertEvent_(p),
   'events.patch': p => Calendar.Events.patch(p.resource, p.calendarId, p.eventId),
   'events.delete': p => { Calendar.Events.remove(p.calendarId, p.eventId); return null; },
   'settings.get': () => getSettings_(),
@@ -124,6 +124,17 @@ function listCalendars_() {
   return (Calendar.CalendarList.list().items || []).map(c => ({
     id: c.id, summary: c.summary, primary: !!c.primary, backgroundColor: c.backgroundColor, accessRole: c.accessRole,
   }));
+}
+
+// 画面が番号を決めて送ってくる。同じ番号で 2 回届いたとき（返事が途中で切れて送り直したとき）は、
+// 新しく作らずに、すでにある予定を返す（同じ予定が 2 つにならないように）
+function insertEvent_(p) {
+  try {
+    return Calendar.Events.insert(p.resource, p.calendarId);
+  } catch (err) {
+    if (p.resource && p.resource.id && /already exists/i.test(String(err && err.message))) return Calendar.Events.get(p.calendarId, p.resource.id);
+    throw err;
+  }
 }
 
 // ---- 40_maps.js ----
