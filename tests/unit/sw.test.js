@@ -26,3 +26,12 @@ test('保存の一覧にあるものは、実際にある', () => {
 test('保存の入れ物の名前は、アプリの版を含む', () => {
   assert.ok(CACHE.includes(APP_VERSION), CACHE);
 });
+
+test('公開のたびに sw の版の印が変わる（端末が新しい版を受け取る）', async () => {
+  const { stampBuild } = await import('../../scripts/stamp-build.mjs');
+  const stamped = stampBuild(code, 'abc1234');
+  const c2 = vm.createContext({ self: { addEventListener() {} } });
+  vm.runInContext(stamped, c2);
+  assert.equal(vm.runInContext('CACHE', c2), `yoteihyo-${APP_VERSION}-abc1234`);
+  assert.throws(() => stampBuild('const X = 1;', 'abc1234'), /BUILD/);
+});
