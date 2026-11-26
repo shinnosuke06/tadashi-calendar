@@ -40,9 +40,10 @@ async function seed(page, data) {
 
 export async function openApp({
   device = 'iPhone 13', fontLevel = 2, theme = 'standard', timezoneId = 'Asia/Tokyo', now = '2026-12-01T09:00:00+09:00',
-  connected = true, settings = {}, hash = '',
+  connected = true, settings = {}, hash = '', serviceWorkers = 'block',
 } = {}) {
-  const ctx = await browser.newContext({ ...devices[device], deviceScaleFactor: 1, timezoneId, locale: 'ja-JP' });
+  // sw は電波なしのテストだけで動かす（ほかのテストは毎回サーバーから読む）
+  const ctx = await browser.newContext({ ...devices[device], deviceScaleFactor: 1, timezoneId, locale: 'ja-JP', serviceWorkers });
   const page = await ctx.newPage();
   page.setDefaultTimeout(10000);
   const errors = [];

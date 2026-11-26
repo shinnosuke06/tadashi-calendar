@@ -163,3 +163,16 @@ test('計算し直す', async () => {
   assert.equal(spy.count('route'), 1);
   assert.equal(again.route.withHighways.minutes, 25);
 });
+
+test('電波がない間に作った予定は、送ったあとも仮の番号で開ける', async () => {
+  const { repo, spy } = await setup();
+  spy.state.offline = true;
+  const saved = await repo.saveEvent(newEvent({ title: '仮の番号の予定' }));
+  assert.match(saved.id, /^tmp-/);
+  spy.state.offline = false;
+  await repo.syncOutbox();
+  const got = await repo.getEvent('primary', saved.id);
+  assert.equal(got.title, '仮の番号の予定');
+  assert.doesNotMatch(got.id, /^tmp-/);
+  assert.equal(await repo.resolveId(saved.id), got.id);
+});

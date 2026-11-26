@@ -3,6 +3,7 @@ import { createIdbKV, createMemoryKV } from './kv.js';
 import { mergeSettings, applySettings } from './settings.js';
 import { createApi } from './api.js';
 import { createDemoApi } from './demo-api.js';
+import { registerServiceWorker } from './sw-register.js';
 import { createRepository } from './repository.js';
 import { todayKey, parseKey } from './dates.js';
 import { parseRoute, routeTo } from './ui/router.js';
@@ -62,7 +63,7 @@ const app = {
     await app.kv.put('kv', 'settings', app.settings);
     if (sync && app.repo) {
       await app.repo.outbox.enqueue({ type: 'saveSettings', settings: app.settings });
-      app.repo.syncOutbox().catch(() => {});
+      syncNow();
     }
   },
   async connect(conn) {
@@ -77,7 +78,8 @@ const app = {
 
 function buildBackend() {
   const c = app.connection;
-  app.api = !c ? null : c.mode === 'demo' ? createDemoApi({ kv: app.kv }) : createApi({ url: c.url, key: c.key });
+  // お試しでも、電波がないときは本物と同じく「まだ保存中」になる
+  app.api = !c ? null : c.mode === 'demo' ? createDemoApi({ kv: app.kv, isOffline: () => !navigator.onLine }) : createApi({ url: c.url, key: c.key });
   app.repo = app.api ? createRepository({ api: app.api, kv: app.kv, getSettings: () => app.settings }) : null;
 }
 
@@ -87,7 +89,17 @@ async function afterConnect() {
     const remote = await app.api.getSettings();
     if (remote) await app.saveSettings({ ...app.settings, ...remote }, { sync: false });
   } catch { /* 電波がなくても動く */ }
-  app.repo.syncOutbox().catch(() => {});
+  syncNow();
+}
+
+// 入力の途中かどうか（このときは画面を描き直さない・新しい版に切り替えない）
+const isEditing = () => /^#\/(new|edit)\//.test(location.hash);
+
+// たまっている保存を送る。予定を送れたら、予定を出している画面を描き直して「まだ保存中」の印を消す
+function syncNow() {
+  app.repo?.syncOutbox().then(r => {
+    if (r?.sent && ['month', 'week', 'day', 'list', 'event'].includes(parseRoute(location.hash).name)) route();
+  }).catch(() => {});
 }
 
 function homeHash() {
@@ -112,6 +124,10 @@ async function route() {
   const r = parseRoute(location.hash);
   if (!app.connection && r.name !== 'setup') { location.replace('#/setup'); if (r.name === 'home' && !location.hash) return route(); return; }
   if (r.name === 'home') { location.replace(homeHash()); return; }
+  if ((r.name === 'event' || r.name === 'edit') && app.repo) {
+    const real = await app.repo.resolveId(r.params.eventId);
+    if (real !== r.params.eventId) { location.replace(routeTo(r.name, { ...r.params, eventId: real })); return; }
+  }
   const my = ++rendering;
   const view = VIEWS[r.name];
   const spec = view ? await view(app, r.params) : placeholder(app, r.params, r.name);
@@ -134,10 +150,11 @@ async function boot() {
   app.shell = createShell(root, { onTab, onSearch: () => app.go('search'), onSettings: () => app.go('settings') });
   installKeyboardHelper(document);
   window.addEventListener('hashchange', route);
-  window.addEventListener('online', () => app.repo?.syncOutbox().catch(() => {}));
+  window.addEventListener('online', syncNow);
   await route();
   root.dataset.ready = '1';
   if (app.api) afterConnect();
+  registerServiceWorker({ isBusy: isEditing });
 }
 
 boot();

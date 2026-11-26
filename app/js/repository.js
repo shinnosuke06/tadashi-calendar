@@ -53,7 +53,13 @@ export function createRepository({ api, kv, getSettings, now = () => new Date() 
       }
     },
 
-    async getEvent(calendarId, id) {
+    // 電波がない間に作った予定の仮の番号を、送ったあとの本当の番号に直す
+    async resolveId(id) {
+      return ((await kv.get('kv', 'idMap')) ?? {})[id] ?? id;
+    },
+
+    async getEvent(calendarId, rawId) {
+      const id = await repo.resolveId(rawId);
       const cached = await cache.get(calendarId, id);
       if (cached) return cached;
       return fromGoogle(await api.getEvent({ calendarId, eventId: id }), calendarId, getSettings());

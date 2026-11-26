@@ -9,9 +9,12 @@
     "build:gas": "node scripts/build-gas.mjs",
     "serve": "node scripts/serve.mjs",
     "test:all": "npm test && npm run test:e2e",
-    "copy-vendor": "node scripts/copy-vendor.mjs"
+    "copy-vendor": "node scripts/copy-vendor.mjs",
+    "copy-fonts": "node scripts/copy-fonts.mjs",
+    "make-icons": "node scripts/make-icons.mjs"
   },
   "devDependencies": {
+    "@fontsource/biz-udpgothic": "5.2.5",
     "leaflet": "1.9.4"
   }
 }
