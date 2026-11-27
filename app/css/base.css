@@ -109,9 +109,10 @@ textarea { min-height: 4em; }
 .addrow { display: grid; grid-template-columns: 1fr auto; gap: 0.4em; }
 .itemrow { display: flex; align-items: center; justify-content: space-between; gap: 0.4em; }
 .itemrow .btn { font-size: 0.8em; }
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 0.2em 0.6em; margin: 0; }
-.kv dt { font-weight: 700; color: var(--sub); }
-.kv dd { margin: 0; overflow-wrap: anywhere; }
+.kv { margin: 0; }
+.kv dt { font-weight: 700; color: var(--sub); font-size: 0.85em; margin-top: 0.7em; }
+.kv dt:first-child { margin-top: 0; }
+.kv dd { margin: 0.1em 0 0; overflow-wrap: anywhere; }
 
 /* 見出しの帯（日付・六曜・天気） */
 .dayhead { margin: 0; padding: 0.3em 0.7em; background: var(--band); display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.6em; font-size: 0.85em; font-weight: 800; }
