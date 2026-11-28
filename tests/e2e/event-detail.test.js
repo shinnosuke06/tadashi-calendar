@@ -91,3 +91,23 @@ test('見つからない予定', async () => {
   await page.waitForSelector('text=この予定は見つかりませんでした。');
   await close();
 });
+
+test('通知やメモは、名前の下に横書きで出る（繰り返しでない予定・一番大きい字・幅の狭い iPhone）', async () => {
+  const { page, close } = await openEvent('demo-trip', { device: 'iPhone SE', fontLevel: 4 });
+  await page.waitForSelector('.detail-time');
+  const notifyLabel = await page.locator('.kv dt', { hasText: '通知' }).boundingBox();
+  const notifyValue = await page.locator('.kv dd', { hasText: '前日の夜8時' }).boundingBox();
+  const memoLabel = await page.locator('.kv dt', { hasText: 'メモ' }).boundingBox();
+  const memoValue = await page.locator('.kv dd', { hasText: '宿の電話番号' }).boundingBox();
+  const lineH = parseFloat(await page.$eval('.kv dd', e => getComputedStyle(e).lineHeight));
+  // 縦に 1 文字ずつ並ばない（1 行に収まる）
+  assert.ok(notifyValue.height < lineH * 1.6, `通知の高さ ${notifyValue.height}（1 行 ${lineH}）`);
+  // 名前の真下に中身が出て、名前どうしは左がそろう
+  assert.ok(notifyValue.y >= notifyLabel.y + notifyLabel.height - 1);
+  assert.ok(Math.abs(notifyValue.x - notifyLabel.x) < 2);
+  assert.ok(Math.abs(memoLabel.x - notifyLabel.x) < 2);
+  assert.ok(memoValue.y >= memoLabel.y + memoLabel.height - 1);
+  // 繰り返しでない予定には、繰り返しの欄（空の行）を出さない
+  assert.equal(await page.locator('.kv dd:visible:empty').count(), 0);
+  await close();
+});

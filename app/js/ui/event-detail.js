@@ -25,7 +25,7 @@ export async function eventDetailView(app, params) {
   const S = app.settings;
   const routeBox = h('div');
   const itemsBox = h('div');
-  const repeatLine = h('dd');
+  const repeatLine = h('dd', { hidden: !ev.recurringEventId && !ev.recurrence });
   const wxLine = h('p', { class: 'wx-line' }, '…');
 
   function renderRoute() {
