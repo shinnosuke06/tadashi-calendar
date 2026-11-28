@@ -67,6 +67,14 @@ const app = {
     }
   },
   async connect(conn) {
+    // つなぎ先（お試し⇔本番、別の Google 側）が変わったら、前のつなぎ先の予定と送り待ちを端末から消す。
+    // 合言葉だけを入れ直したとき（同じ Google 側）は、まだ送れていない予定を残して、あとで送る。
+    const prev = app.connection;
+    const sameBackend = prev && prev.mode === conn.mode && (prev.url ?? '') === (conn.url ?? '');
+    if (!sameBackend) {
+      for (const store of ['events', 'months', 'outbox']) await app.kv.clear(store);
+      await app.kv.delete('kv', 'idMap');
+    }
     app.connection = conn;
     await app.kv.put('kv', 'connection', conn);
     buildBackend();

@@ -42,3 +42,13 @@ test('ほかの月とほかのカレンダーの予定は消さない', async ()
   await c.remove('primary', 'jan');
   assert.equal(await c.get('primary', 'jan'), undefined);
 });
+
+test('入れ物を空にできる（つなぎ先を変えたとき）', async () => {
+  const kv = createMemoryKV();
+  await kv.put('events', 'a', 1);
+  await kv.put('events', 'b', 2);
+  await kv.put('kv', 'settings', 3);
+  await kv.clear('events');
+  assert.deepEqual(await kv.getAll('events'), []);
+  assert.equal(await kv.get('kv', 'settings'), 3);
+});
