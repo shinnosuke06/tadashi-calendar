@@ -10,6 +10,7 @@ export function createMemoryKV() {
     put: async (s, k, v) => { st(s).set(k, copy(v)); },
     delete: async (s, k) => { st(s).delete(k); },
     getAll: async s => [...st(s).values()].map(copy),
+    clear: async s => { st(s).clear(); },
   };
 }
 
@@ -35,5 +36,6 @@ export function createIdbKV(dbName = 'tadashi-calendar') {
     put: (s, k, v) => run(s, 'readwrite', os => os.put(v, k)).then(() => undefined),
     delete: (s, k) => run(s, 'readwrite', os => os.delete(k)).then(() => undefined),
     getAll: s => run(s, 'readonly', os => os.getAll()),
+    clear: s => run(s, 'readwrite', os => os.clear()).then(() => undefined),
   };
 }
